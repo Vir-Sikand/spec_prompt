@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:," />
+  <title>SpecPrompt</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0e0e10;
+      --surface: #18181b;
+      --surface-2: #1e1e22;
+      --border: #2a2a2e;
+      --text: #e4e4e7;
+      --text-dim: #a1a1aa;
+      --accent: #7c3aed;
+      --accent-hover: #6d28d9;
+      --accent-glow: rgba(124, 58, 237, 0.25);
+      --danger: #ef4444;
+      --radius: 8px;
+      --mono: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
+      --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    html { font-size: 15px; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 760px;
+      padding: 2rem 1.25rem 4rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.35rem;
+    }
+    header h1 span { color: var(--accent); }
+    header p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+    .mode-toggle {
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .mode-toggle button {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      font-family: var(--sans);
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: transparent;
+      color: var(--text-dim);
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .mode-toggle button:first-child { border-right: 1px solid var(--border); }
+    .mode-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .mode-toggle button:not(.active):hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .field { margin-bottom: 1rem; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      line-height: 1.5;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.7rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input, select { font-family: var(--sans); }
+    textarea { resize: vertical; min-height: 130px; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .hidden { display: none; }
+    .btn-submit {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .btn-submit:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 0.75rem;
+      font-size: 0.84rem;
+      color: var(--text-dim);
+      word-break: break-word;
+    }
+    .status.error { color: #fca5a5; }
+    .results {
+      margin-top: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .results h2 {
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    pre {
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    @media (max-width: 640px) {
+      .container { padding: 1.25rem 1rem 3rem; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span>Spec</span>Prompt</h1>
+      <p>Turn diffs into spec-driven prompts.</p>
+    </header>
+
+    <div class="mode-toggle" role="tablist">
+      <button id="btn-suggest" class="active" role="tab" aria-selected="true">Suggest</button>
+      <button id="btn-refine" role="tab" aria-selected="false">Refine</button>
+    </div>
+
+    <form id="prompt-form">
+      <div class="field grid-2">
+        <div>
+          <label for="api-base">API Base URL</label>
+          <input id="api-base" placeholder="Optional, defaults to current origin" />
+        </div>
+        <div>
+          <label for="input-method">Input Method</label>
+          <select id="input-method">
+            <option value="repo">Use Repo Path</option>
+            <option value="diff">Paste Git Diff</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field" id="repo-path-group">
+        <label for="repo-path">Repo Path</label>
+        <input id="repo-path" placeholder="/absolute/path/to/repo" />
+      </div>
+
+      <div class="field hidden" id="diff-text-group">
+        <label for="diff-text">Git Diff</label>
+        <textarea id="diff-text" placeholder="Paste git diff output here..."></textarea>
+      </div>
+
+      <div class="field hidden" id="last-prompt-group">
+        <label for="last-prompt">Last Prompt (for refine)</label>
+        <textarea id="last-prompt" placeholder="Paste your previous prompt here..."></textarea>
+      </div>
+
+      <button id="btn-submit" class="btn-submit" type="submit">Generate Suggestion</button>
+      <div id="status" class="status"></div>
+    </form>
+
+    <section class="results">
+      <h2 id="result-title">Output</h2>
+      <pre id="result">Output will appear here.</pre>
+    </section>
+  </div>
+
+  <script>
+    let currentMode = "suggest";
+
+    const form = document.getElementById("prompt-form");
+    const btnSuggest = document.getElementById("btn-suggest");
+    const btnRefine = document.getElementById("btn-refine");
+    const btnSubmit = document.getElementById("btn-submit");
+    const modeTitle = document.getElementById("result-title");
+
+    const apiBaseEl = document.getElementById("api-base");
+    const inputMethodEl = document.getElementById("input-method");
+    const repoPathGroupEl = document.getElementById("repo-path-group");
+    const repoPathEl = document.getElementById("repo-path");
+    const diffTextGroupEl = document.getElementById("diff-text-group");
+    const diffTextEl = document.getElementById("diff-text");
+    const lastPromptGroupEl = document.getElementById("last-prompt-group");
+    const lastPromptEl = document.getElementById("last-prompt");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+
+    function resolveApiBase() {
+      const manual = (apiBaseEl.value || "").trim();
+      if (manual) return manual.replace(/\/+$/, "");
+      if (window.location.port === "5500") return "http://127.0.0.1:8000";
+      return window.location.origin.replace(/\/+$/, "");
+    }
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      const isRefine = mode === "refine";
+      btnSuggest.classList.toggle("active", !isRefine);
+      btnRefine.classList.toggle("active", isRefine);
+      btnSuggest.setAttribute("aria-selected", String(!isRefine));
+      btnRefine.setAttribute("aria-selected", String(isRefine));
+      lastPromptGroupEl.classList.toggle("hidden", !isRefine);
+      lastPromptEl.required = isRefine;
+      btnSubmit.textContent = isRefine ? "Refine Prompt" : "Generate Suggestion";
+      modeTitle.textContent = isRefine ? "Critique and Rewritten Prompt" : "Suggested Prompt";
+    }
+
+    function syncInputMethod() {
+      const useDiff = inputMethodEl.value === "diff";
+      repoPathGroupEl.classList.toggle("hidden", useDiff);
+      diffTextGroupEl.classList.toggle("hidden", !useDiff);
+      repoPathEl.required = !useDiff;
+      diffTextEl.required = useDiff;
+    }
+
+    function buildRequestFailureMessage(url, response, detail) {
+      const statusText = response.statusText || "Unknown";
+      const safeDetail = (detail || "No error payload returned.").trim();
+      return `Request failed | URL: ${url} | Status: ${response.status} ${statusText} | Detail: ${safeDetail}`;
+    }
+
+    btnSuggest.addEventListener("click", () => setMode("suggest"));
+    btnRefine.addEventListener("click", () => setMode("refine"));
+    inputMethodEl.addEventListener("change", syncInputMethod);
+
+    const isHosted = !["localhost", "127.0.0.1"].includes(window.location.hostname);
+    if (isHosted) inputMethodEl.value = "diff";
+    if (window.location.port === "5500") {
+      apiBaseEl.placeholder = "Auto: http://127.0.0.1:8000 (local API)";
+    }
+    setMode("suggest");
+    syncInputMethod();
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setStatus("Running request...");
+      resultEl.textContent = "";
+
+      const endpoint = currentMode === "refine" ? "/api/refine" : "/api/suggest";
+      const url = `${resolveApiBase()}${endpoint}`;
+      const body = {};
+
+      if (inputMethodEl.value === "diff") {
+        const pastedDiff = diffTextEl.value.trim();
+        if (!pastedDiff) {
+          setStatus("Error: Paste a git diff before running.", true);
+          resultEl.textContent = "No output due to request error.";
+          return;
+        }
+        body.diff_text = pastedDiff;
+      } else {
+        const repoPath = repoPathEl.value.trim();
+        if (!repoPath) {
+          setStatus("Error: Enter a repo path before running.", true);
+          resultEl.textContent = "No output due to request error.";
+          return;
+        }
+        body.repo_path = repoPath;
+      }
+
+      if (currentMode === "refine") {
+        const promptText = lastPromptEl.value.trim();
+        if (!promptText) {
+          setStatus("Error: Provide the last prompt for refine mode.", true);
+          resultEl.textContent = "No output due to request error.";
+          return;
+        }
+        body.last_prompt = promptText;
+      }
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const contentType = response.headers.get("content-type") || "";
+        const textPayload = await response.text();
+        if (!response.ok) {
+          let detail = textPayload;
+          if (contentType.includes("application/json")) {
+            try {
+              const parsed = JSON.parse(textPayload);
+              detail = parsed.detail || parsed.message || textPayload;
+            } catch (_) {
+              detail = textPayload;
+            }
+          }
+          throw new Error(buildRequestFailureMessage(url, response, detail));
+        }
+        resultEl.textContent = textPayload;
+        setStatus("Done.");
+      } catch (error) {
+        setStatus(`Error: ${error.message}`, true);
+        resultEl.textContent = `Request failed.\n\n${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

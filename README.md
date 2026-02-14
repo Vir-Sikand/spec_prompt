@@ -2,6 +2,8 @@
 
 SpecPrompt turns code changes into stronger, spec-driven prompts for AI coding workflows.
 
+The agent logs are in ```agent_logs``` and the ***planning file*** from cursor plan mode was used to generate this quickly with 4 agents in parallel, ```agent_logs/agent_generated_plan.md```
+
 It supports two modes:
 - `suggest`: generate the next prompt from current changes
 - `refine`: critique and rewrite a previous prompt using current changes
